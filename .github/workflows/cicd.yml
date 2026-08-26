@@ -1,0 +1,54 @@
+name: 完整CI/CD自动构建部署流水线
+
+# 触发条件：推送main分支、支持网页手动触发
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# 流水线任务
+jobs:
+  # 第一阶段：CI 持续集成（构建镜像、推送镜像）
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 拉取GitHub仓库代码到运行机器
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      # 2. 登录DockerHub镜像仓库
+      - name: 登录DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 3. 构建镜像并自动推送至DockerHub
+      - name: 构建并推送镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/cicd-demo:latest
+
+  # 第二阶段：CD 持续部署（依赖构建任务完成后执行）
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 远程登录云服务器执行部署脚本
+      - name: 远程自动部署
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_SERVER }}
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            # 停止旧容器（不存在不报错）
+            docker stop cicd-demo || true
+            # 删除旧容器
+            docker rm cicd-demo || true
+            # 拉取最新镜像
+            docker pull ${{ secrets.DOCKER_USERNAME }}/cicd-demo:latest
+            # 启动新容器，80端口映射
+            docker run -d --name cicd-demo -p 80:80 ${{ secrets.DOCKER_USERNAME }}/cicd-demo:latest
