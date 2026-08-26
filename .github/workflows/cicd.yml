@@ -51,4 +51,4 @@ jobs:
             # 拉取最新镜像
             docker pull ${{ secrets.DOCKER_USERNAME }}/cicd-demo:latest
             # 启动新容器，80端口映射
-            docker run -d --name cicd-demo -p 80:80 ${{ secrets.DOCKER_USERNAME }}/cicd-demo:latest
+            docker run -d --name cicd-demo -p 8080:80 ${{ secrets.DOCKER_USERNAME }}/cicd-demo:latest
